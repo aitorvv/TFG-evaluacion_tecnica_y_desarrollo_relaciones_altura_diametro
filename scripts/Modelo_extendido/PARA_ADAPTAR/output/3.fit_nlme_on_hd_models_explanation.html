@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3.fit_nlme_on_hd_models.r Documentation</title>
+    <!-- Google Fonts Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <!-- PrismJS for high-performance syntax highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <style>
+        :root {
+            --bg-obsidian: #090e0b;
+            --bg-card: #121a15;
+            --brand-green-dark: #2e653a;
+            --brand-green-mid: #3f8b44;
+            --brand-green-glow: #92b543;
+            --brand-wood-dark: #402b1c;
+            --brand-wood-light: #79522f;
+            --text-primary: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border-subtle: rgba(46, 101, 58, 0.25);
+            --border-hover: rgba(146, 181, 67, 0.45);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background-color: var(--bg-obsidian);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            overflow-x: hidden;
+            display: flex;
+        }
+
+        /* Scrollbar styles */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-obsidian);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--brand-green-dark);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--brand-green-glow);
+        }
+
+        /* Sidebar Navigation */
+        aside {
+            width: 280px;
+            height: 100vh;
+            background-color: var(--bg-card);
+            border-right: 1px solid var(--border-subtle);
+            position: fixed;
+            top: 0;
+            left: 0;
+            padding: 2rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 100;
+        }
+
+
+
+        .nav-menu {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex-grow: 1;
+        }
+
+        .nav-item a {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.25s ease;
+            border: 1px solid transparent;
+        }
+
+        .nav-item a:hover, .nav-item.active a {
+            color: var(--text-primary);
+            background-color: rgba(46, 101, 58, 0.15);
+            border-color: rgba(146, 181, 67, 0.2);
+            padding-left: 1.25rem;
+        }
+
+        .nav-item.active a {
+            border-left: 4px solid var(--brand-green-glow);
+            font-weight: 600;
+        }
+
+        .sidebar-footer {
+            border-top: 1px solid var(--border-subtle);
+            padding-top: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .footer-tag {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--brand-green-glow);
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+            opacity: 0.85;
+        }
+
+        .footer-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Main Content Panel */
+        main {
+            margin-left: 280px;
+            padding: 3rem;
+            width: calc(100% - 280px);
+            min-height: 100vh;
+        }
+
+        .header-section {
+            margin-bottom: 3.5rem;
+            position: relative;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.6rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, var(--text-primary), var(--brand-green-glow));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        /* Premium Glassmorphic Cards */
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 2.2rem;
+            margin-bottom: 2.5rem;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: var(--border-hover);
+            box-shadow: 0 10px 40px rgba(146, 181, 67, 0.05);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-subtle);
+            padding-bottom: 1rem;
+        }
+
+        .card-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            background-color: rgba(146, 181, 67, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--brand-green-glow);
+            font-weight: bold;
+        }
+
+        h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        h3 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--brand-green-glow);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        p {
+            color: var(--text-muted);
+            margin-bottom: 1.25rem;
+            font-size: 1.02rem;
+            line-height: 1.7;
+        }
+
+        ul, ol {
+            color: var(--text-muted);
+            margin-left: 1.5rem;
+            margin-bottom: 1.25rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        /* Interactive Workflow / Pipeline Container */
+        .pipeline-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .pipeline-step {
+            background: rgba(46, 101, 58, 0.08);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 1.25rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .pipeline-step.active {
+            background: linear-gradient(135deg, rgba(46, 101, 58, 0.25), rgba(146, 181, 67, 0.15));
+            border-color: var(--brand-green-glow);
+            box-shadow: 0 0 15px rgba(146, 181, 67, 0.15);
+        }
+
+        .pipeline-step:hover {
+            border-color: var(--brand-green-glow);
+            transform: translateY(-2px);
+        }
+
+        .step-num {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: var(--brand-green-glow);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.25rem;
+        }
+
+        .step-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .pipeline-details-box {
+            background-color: rgba(9, 14, 11, 0.5);
+            border: 1px dashed var(--border-subtle);
+            border-radius: 12px;
+            padding: 1.75rem;
+            min-height: 120px;
+            margin-top: 1.5rem;
+        }
+
+        .pipeline-detail-content {
+            display: none;
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        .pipeline-detail-content.active {
+            display: block;
+        }
+
+        /* Technical Considerations Tab System */
+        .tabs-container {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .tabs-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            width: 220px;
+            flex-shrink: 0;
+        }
+
+        .tab-btn {
+            background: rgba(46, 101, 58, 0.05);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            padding: 0.85rem 1.2rem;
+            border-radius: 8px;
+            text-align: left;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        .tab-btn:hover, .tab-btn.active {
+            color: var(--text-primary);
+            background: rgba(46, 101, 58, 0.15);
+            border-color: var(--brand-green-glow);
+        }
+
+        .tab-btn.active {
+            border-left: 4px solid var(--brand-green-glow);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .tabs-content {
+            flex-grow: 1;
+            background: rgba(9, 14, 11, 0.4);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 2rem;
+            min-height: 380px;
+        }
+
+        .tab-panel {
+            display: none;
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* Custom Code Blocks with Copy capability */
+        .code-container {
+            position: relative;
+            margin-top: 1.25rem;
+            margin-bottom: 1.25rem;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #1e1e1e;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            background: #121212;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .code-lang {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--brand-green-glow);
+            letter-spacing: 0.5px;
+        }
+
+        .copy-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            padding: 0.2rem 0.6rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .copy-btn:hover {
+            color: var(--text-primary);
+            border-color: var(--brand-green-glow);
+            background: rgba(146, 181, 67, 0.1);
+        }
+
+        pre {
+            margin: 0 !important;
+            padding: 1.25rem !important;
+            font-size: 0.88rem !important;
+            background: transparent !important;
+            overflow-x: auto;
+        }
+
+        code {
+            font-family: 'Fira Code', monospace !important;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1024px) {
+            .tabs-container {
+                flex-direction: column;
+            }
+            .tabs-menu {
+                width: 100%;
+                flex-direction: row;
+                overflow-x: auto;
+            }
+            .tab-btn {
+                flex-shrink: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            aside {
+                width: 100%;
+                height: auto;
+                position: relative;
+                padding: 1.5rem;
+            }
+            main {
+                width: 100%;
+                margin-left: 0;
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar Navigation -->
+    <aside>
+        <div>
+
+            <ul class="nav-menu">
+                
+                <li class="nav-item active" id="menu-overview">
+                    <a href="#overview">Overview</a>
+                </li>
+                
+                <li class="nav-item " id="menu-main-blocks-of-information">
+                    <a href="#main-blocks-of-information">Main Blocks of Information</a>
+                </li>
+                
+                <li class="nav-item " id="menu-technical-considerations">
+                    <a href="#technical-considerations">Technical Considerations</a>
+                </li>
+                
+            </ul>
+        </div>
+        <div class="sidebar-footer">
+            <div class="footer-tag">Documentation</div>
+            <div class="footer-desc">Generated dynamically from technical markdown.</div>
+        </div>
+    </aside>
+
+    <!-- Main Content Panel -->
+    <main>
+        
+        <!-- Header -->
+        <section class="header-section" id="overview-header">
+            <h1>3.fit_nlme_on_hd_models.r Documentation</h1>
+            <div class="subtitle">Interactive technical documentation panel</div>
+        </section>
+
+        <!-- Main Sections Loop -->
+        
+        <div class="card" id="overview">
+            <div class="card-header">
+                <div class="card-icon">i</div>
+                <h2>Overview</h2>
+            </div>
+            
+            
+                <!-- Render Standard Card Content -->
+                <p>This script is designed to fit Non-Linear Mixed-Effects (NLME) models on height-diameter (HD) data for trees. It iterates through tree species and predefined top models to evaluate combinations of fixed and random effects, storing the resulting model objects on disk and gathering fitting statistics.</p>
+            
+        </div>
+        
+        <div class="card" id="main-blocks-of-information">
+            <div class="card-header">
+                <div class="card-icon">⚡</div>
+                <h2>Main Blocks of Information</h2>
+            </div>
+            
+            
+                
+                    <!-- Render as Interactive Sequential Pipeline -->
+                    <div class="pipeline-container">
+                        
+                        <div class="pipeline-step active" onclick="showPipelineStep(this, 0)">
+                            <div class="step-num">Stage 1</div>
+                            <div class="step-title">
+                                
+                                    Data and Functions Loading
+                                
+                            </div>
+                        </div>
+                        
+                        <div class="pipeline-step " onclick="showPipelineStep(this, 1)">
+                            <div class="step-num">Stage 2</div>
+                            <div class="step-title">
+                                
+                                    Configuration of Effects
+                                
+                            </div>
+                        </div>
+                        
+                        <div class="pipeline-step " onclick="showPipelineStep(this, 2)">
+                            <div class="step-num">Stage 3</div>
+                            <div class="step-title">
+                                
+                                    Nested Fitting Loops
+                                
+                            </div>
+                        </div>
+                        
+                        <div class="pipeline-step " onclick="showPipelineStep(this, 3)">
+                            <div class="step-num">Stage 4</div>
+                            <div class="step-title">
+                                
+                                    Model Fit and Persistence
+                                
+                            </div>
+                        </div>
+                        
+                    </div>
+
+                    <div class="pipeline-details-box">
+                        
+                        <div class="pipeline-detail-content active">
+                            <h3>1. Data and Functions Loading</h3>
+                            <ul>
+<li>Loads required packages (<code>nlme</code>, <code>tidyverse</code>, <code>broom.mixed</code>) and internal functions for HD equations (<code>0.support_functions.r</code> and <code>0.hd_equations_collection.r</code>).</li>
+<li>Prepares the main dataset (<code>swodata.csv</code>) by normalizing variable names (e.g., <code>ht</code> mapped to <code>h</code>).</li>
+<li>Merges the top selected HD models with their previously estimated baseline coefficients (<code>1.fit_base_hd_models_coefs.csv</code>).</li>
+</ul>
+                        </div>
+                        
+                        <div class="pipeline-detail-content ">
+                            <h3>2. Configuration of Effects</h3>
+                            <ul>
+<li>Defines alternative <strong>fixed effects</strong> to evaluate: null (<code>1</code>), crown competition factor (<code>ccfl</code>), basal area in larger trees (<code>bal</code>), and both (<code>ccfl + bal</code>).</li>
+<li>Defines alternative <strong>random effects</strong>: none (<code>0</code>) or stand-level (<code>standid</code>).</li>
+</ul>
+                        </div>
+                        
+                        <div class="pipeline-detail-content ">
+                            <h3>3. Nested Fitting Loops</h3>
+                            <p>The execution relies on a multi-level iterative process:
+- <strong>Species level:</strong> Filters data for a specific species.
+- <strong>Model level:</strong> Iterates over the selected top HD models for that species, loading their specific functions and base coefficients.
+- <strong>Fixed effects combinations:</strong> Dynamically creates a grid of all parameter permutations against the defined fixed effects using <code>expand.grid()</code>.
+- <strong>Random effects combinations:</strong> Similarly computes combinations to selectively apply the stand-level random effect to different parameters.</p>
+                        </div>
+                        
+                        <div class="pipeline-detail-content ">
+                            <h3>4. Model Fit and Persistence</h3>
+                            <ul>
+<li>Constructs the starting values dynamically using <code>model.matrix()</code> to handle categorical/continuous covariates properly.</li>
+<li>Fits either an <code>nlme</code> (mixed effects) or a <code>gnls</code> (generalized nonlinear least squares, when no random effects are included) model.</li>
+<li>Calculates and stores performance statistics (R-squared, RMSE, MAE, bias, AIC, BIC) using <code>predict()</code> and custom functions.</li>
+<li>Saves each successfully fitted model as an <code>.rds</code> file to prevent RAM overload.</li>
+</ul>
+                        </div>
+                        
+                    </div>
+                
+            
+        </div>
+        
+        <div class="card" id="technical-considerations">
+            <div class="card-header">
+                <div class="card-icon">🛠️</div>
+                <h2>Technical Considerations</h2>
+            </div>
+            
+            
+                
+                    <!-- Render as Interactive Tabbed Cards -->
+                    <div class="tabs-container">
+                        <div class="tabs-menu">
+                            
+                            <button class="tab-btn active" onclick="showSectionTab(this, 0)">
+                                Dynamic Formula Generation
+                            </button>
+                            
+                            <button class="tab-btn " onclick="showSectionTab(this, 1)">
+                                Memory Management
+                            </button>
+                            
+                            <button class="tab-btn " onclick="showSectionTab(this, 2)">
+                                Error Handling
+                            </button>
+                            
+                            <button class="tab-btn " onclick="showSectionTab(this, 3)">
+                                Model Type Fallback
+                            </button>
+                            
+                            <button class="tab-btn " onclick="showSectionTab(this, 4)">
+                                Model Matrix Starting Values
+                            </button>
+                            
+                        </div>
+
+                        <div class="tabs-content">
+                            
+                            <div class="tab-panel active">
+                                <h3>Dynamic Formula Generation</h3>
+                                <p>The script dynamically pieces together formula strings (e.g., <code>h ~ model_function(a, b, dbh)</code>) and lists of formulas for <code>fixed</code> arguments based on the target model's parameter names. This enables the script to adapt gracefully to HD models that have any number of coefficients (e.g., 2-parameter vs. 3-parameter equations).</p>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="c1"># get model coefficients</span>
+<span class="w">    </span><span class="n">start_values</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">species_top_models</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w"> </span><span class="n">dplyr</span><span class="o">::</span><span class="nf">filter</span><span class="p">(</span><span class="n">model</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">model_name</span><span class="p">)</span>
+<span class="w">    </span><span class="n">start_values_list</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">as.list</span><span class="p">(</span><span class="nf">setNames</span><span class="p">(</span><span class="n">start_values</span><span class="o">$</span><span class="n">estimate</span><span class="p">,</span><span class="w"> </span><span class="n">start_values</span><span class="o">$</span><span class="n">term</span><span class="p">))</span>
+<span class="w">    </span><span class="n">model_coefs</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">start_values_list</span><span class="p">[</span><span class="nf">order</span><span class="p">(</span><span class="nf">names</span><span class="p">(</span><span class="n">start_values_list</span><span class="p">))]</span>
+
+<span class="w">    </span><span class="c1"># get model details</span>
+<span class="w">    </span><span class="n">model_function</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">hd_models_collection</span><span class="p">[[</span><span class="n">model_name</span><span class="p">]]</span><span class="o">$</span><span class="n">func</span>
+<span class="w">    </span><span class="n">coefs_labels</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">names</span><span class="p">(</span><span class="n">model_coefs</span><span class="p">)</span>
+<span class="w">    </span><span class="n">formula_str</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">paste0</span><span class="p">(</span><span class="s">&quot;h ~ model_function(&quot;</span><span class="p">,</span><span class="w"> </span><span class="nf">paste</span><span class="p">(</span><span class="n">coefs_labels</span><span class="p">,</span><span class="w"> </span><span class="n">collapse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;, &quot;</span><span class="p">),</span><span class="w"> </span><span class="s">&quot;, dbh)&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="n">model_formula</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">as.formula</span><span class="p">(</span><span class="n">formula_str</span><span class="p">)</span>
+</code></pre></div>
+                            </div>
+                            
+                            <div class="tab-panel ">
+                                <h3>Memory Management</h3>
+                                <p>Storing thousands of fitted <code>nlme</code> models in a single R <code>list</code> or environment would quickly consume all available RAM. The script uses <code>saveRDS()</code> to write each successfully fitted model directly to disk inside <code>output/3.nlme_hd_models/</code>, keeping only the lightweight metadata and statistics in the <code>results_stats</code> dataframe.</p>
+<div class="codehilite"><pre><span></span><code><span class="w">          </span><span class="c1"># save model to disk to prevent out of memory issues</span>
+<span class="w">          </span><span class="nf">saveRDS</span><span class="p">(</span><span class="n">fit</span><span class="p">,</span><span class="w"> </span><span class="n">file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">paste0</span><span class="p">(</span><span class="s">&quot;output/3.nlme_hd_models/&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">sp</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;_&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">model_name</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;_fe_&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;_re_&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;.rds&quot;</span><span class="p">))</span>
+</code></pre></div>
+                            </div>
+                            
+                            <div class="tab-panel ">
+                                <h3>Error Handling</h3>
+                                <p>Fitting nonlinear models frequently fails to converge depending on the initial values and data structure. The code wraps the fitting functions within a <code>tryCatch()</code> block. If convergence fails, it logs a warning, skips saving the <code>.rds</code> file, and records <code>NA</code> stats with an <code>error = TRUE</code> flag in the results table, allowing the loop to continue without crashing the execution.</p>
+<div class="codehilite"><pre><span></span><code><span class="w">        </span><span class="nf">cat</span><span class="p">(</span><span class="s">&quot;  - fitting fe combination &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="s">&quot; and re combination &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;...\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">sep</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="n">fit_result</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">tryCatch</span><span class="p">(</span>
+<span class="w">          </span><span class="p">{</span>
+<span class="w">            </span><span class="c1"># if the random effect combination is &quot;none&quot;, fit gnls instead of nlme</span>
+<span class="w">            </span><span class="nf">if </span><span class="p">(</span><span class="nf">inherits</span><span class="p">(</span><span class="n">re_combi</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;character&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">re_combi</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;none&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">              </span><span class="n">fit</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">nlme</span><span class="o">::</span><span class="nf">gnls</span><span class="p">(</span>
+<span class="w">                </span><span class="n">model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">model_formula</span><span class="p">,</span>
+<span class="w">                </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">species_data</span><span class="p">,</span>
+<span class="w">                </span><span class="n">params</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fe_combi</span><span class="p">,</span>
+<span class="w">                </span><span class="n">start</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">start_vec</span>
+<span class="w">              </span><span class="p">)</span>
+<span class="w">            </span><span class="p">}</span><span class="w"> </span><span class="n">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">              </span><span class="n">fit</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">nlme</span><span class="o">::</span><span class="nf">nlme</span><span class="p">(</span>
+<span class="w">                </span><span class="n">model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">model_formula</span><span class="p">,</span>
+<span class="w">                </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">species_data</span><span class="p">,</span>
+<span class="w">                </span><span class="n">fixed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fe_combi</span><span class="p">,</span>
+<span class="w">                </span><span class="n">random</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">re_combi</span><span class="p">,</span>
+<span class="w">                </span><span class="n">start</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">start_vec</span>
+<span class="w">              </span><span class="p">)</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">          </span><span class="p">},</span>
+<span class="w">          </span><span class="n">error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">function</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nf">cat</span><span class="p">(</span><span class="s">&quot;WARNING: Fitting failed for model &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">model_name</span><span class="p">,</span><span class="w"> </span><span class="s">&quot; fe: &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="s">&quot; re: &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="s">&quot; - &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">e</span><span class="o">$</span><span class="n">message</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;\n&quot;</span><span class="p">,</span><span class="w"> </span>
+<span class="w">                </span><span class="n">sep</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="nf">return</span><span class="p">(</span><span class="kc">NULL</span><span class="p">)</span><span class="w"> </span><span class="c1"># return NULL if there&#39;s an error</span>
+<span class="w">          </span><span class="p">}</span>
+<span class="w">        </span><span class="p">)</span>
+</code></pre></div>
+                            </div>
+                            
+                            <div class="tab-panel ">
+                                <h3>Model Type Fallback</h3>
+                                <p>Because some combinations do not include random effects (identified by all parameters having <code>0</code>), the script seamlessly switches from using <code>nlme::nlme()</code> to <code>nlme::gnls()</code> (Generalized Nonlinear Least Squares). This ensures that base nonlinear fits are comparable to the mixed-effects versions within the same pipeline.</p>
+<div class="codehilite"><pre><span></span><code><span class="w">            </span><span class="c1"># if the random effect combination is &quot;none&quot;, fit gnls instead of nlme</span>
+<span class="w">            </span><span class="nf">if </span><span class="p">(</span><span class="nf">inherits</span><span class="p">(</span><span class="n">re_combi</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;character&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">re_combi</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;none&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">              </span><span class="n">fit</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">nlme</span><span class="o">::</span><span class="nf">gnls</span><span class="p">(</span>
+<span class="w">                </span><span class="n">model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">model_formula</span><span class="p">,</span>
+<span class="w">                </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">species_data</span><span class="p">,</span>
+<span class="w">                </span><span class="n">params</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fe_combi</span><span class="p">,</span>
+<span class="w">                </span><span class="n">start</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">start_vec</span>
+<span class="w">              </span><span class="p">)</span>
+<span class="w">            </span><span class="p">}</span><span class="w"> </span><span class="n">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">              </span><span class="n">fit</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">nlme</span><span class="o">::</span><span class="nf">nlme</span><span class="p">(</span>
+<span class="w">                </span><span class="n">model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">model_formula</span><span class="p">,</span>
+<span class="w">                </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">species_data</span><span class="p">,</span>
+<span class="w">                </span><span class="n">fixed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fe_combi</span><span class="p">,</span>
+<span class="w">                </span><span class="n">random</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">re_combi</span><span class="p">,</span>
+<span class="w">                </span><span class="n">start</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">start_vec</span>
+<span class="w">              </span><span class="p">)</span>
+<span class="w">            </span><span class="p">}</span>
+</code></pre></div>
+                            </div>
+                            
+                            <div class="tab-panel ">
+                                <h3>Model Matrix Starting Values</h3>
+                                <p>Adding covariates (factors or continuous like crown density <code>ccfl</code>) adds parameters. To ensure convergence, the solver needs accurate initial guesses for these new slopes. The script builds a <code>model.frame</code> and its corresponding <code>model.matrix</code>, defaulting starting estimates for new parameters to <code>0</code> while holding core non-linear coefficients to baseline priors.</p>
+<div class="codehilite"><pre><span></span><code><span class="w">      </span><span class="c1"># build the start vector dynamically</span>
+<span class="w">      </span><span class="n">start_vec</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">c</span><span class="p">()</span>
+<span class="w">      </span><span class="nf">for </span><span class="p">(</span><span class="n">k</span><span class="w"> </span><span class="n">in</span><span class="w"> </span><span class="nf">seq_along</span><span class="p">(</span><span class="n">fe_combi</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1"># extract parameter name from the left-hand side of the formula (e.g., a0 from a0 ~ 1 + ccfl)</span>
+<span class="w">        </span><span class="n">p_name</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">as.character</span><span class="p">(</span><span class="n">fe_combi</span><span class="p">[[</span><span class="n">k</span><span class="p">]][[</span><span class="m">2</span><span class="p">]])</span>
+
+<span class="w">        </span><span class="c1"># the base starting value from the non-linear squares coefficient list</span>
+<span class="w">        </span><span class="n">base_val</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">model_coefs</span><span class="p">[[</span><span class="n">p_name</span><span class="p">]]</span>
+
+<span class="w">        </span><span class="c1"># extract the rhs of the formula (e.g., ~ 1 + ccfl)</span>
+<span class="w">        </span><span class="n">rhs_formula</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">formula</span><span class="p">(</span><span class="nf">delete.response</span><span class="p">(</span><span class="nf">terms</span><span class="p">(</span><span class="n">fe_combi</span><span class="p">[[</span><span class="n">k</span><span class="p">]])))</span>
+
+<span class="w">        </span><span class="c1"># dynamically build model matrix to support continuous or categorical covariates (factors)</span>
+<span class="w">        </span><span class="c1"># model.matrix handles factors automatically, outputting k-1 columns for k levels</span>
+<span class="w">        </span><span class="n">m_frame</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">model.frame</span><span class="p">(</span><span class="n">rhs_formula</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">species_data</span><span class="p">,</span><span class="w"> </span><span class="n">na.action</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">na.pass</span><span class="p">)</span>
+<span class="w">        </span><span class="n">m_matrix</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">model.matrix</span><span class="p">(</span><span class="n">rhs_formula</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">m_frame</span><span class="p">)</span>
+<span class="w">        </span><span class="n">n_extra_params</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">ncol</span><span class="p">(</span><span class="n">m_matrix</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="m">1</span>
+
+<span class="w">        </span><span class="c1"># append the base value, and fill with 0s for the extra covariates</span>
+<span class="w">        </span><span class="n">start_vec</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="n">start_vec</span><span class="p">,</span><span class="w"> </span><span class="n">base_val</span><span class="p">,</span><span class="w"> </span><span class="nf">rep</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="n">n_extra_params</span><span class="p">))</span>
+<span class="w">      </span><span class="p">}</span>
+</code></pre></div>
+                            </div>
+                            
+                        </div>
+                    </div>
+                
+            
+        </div>
+        
+
+    </main>
+
+    <!-- PrismJS syntax highlighter scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    
+    <script>
+        // Interactive Pipeline Switcher
+        function showPipelineStep(stepEl, idx) {
+            const container = stepEl.closest('.card');
+            const steps = container.querySelectorAll('.pipeline-step');
+            const details = container.querySelectorAll('.pipeline-detail-content');
+            
+            steps.forEach((s, sIdx) => {
+                if(sIdx === idx) s.classList.add('active');
+                else s.classList.remove('active');
+            });
+
+            details.forEach((d, dIdx) => {
+                if(dIdx === idx) d.classList.add('active');
+                else d.classList.remove('active');
+            });
+        }
+
+        // Technical Tabs Switcher
+        function showSectionTab(btn, idx) {
+            const container = btn.closest('.tabs-container');
+            const btns = container.querySelectorAll('.tab-btn');
+            const panels = container.querySelectorAll('.tab-panel');
+            
+            btns.forEach((b, bIdx) => {
+                if(bIdx === idx) b.classList.add('active');
+                else b.classList.remove('active');
+            });
+
+            panels.forEach((p, pIdx) => {
+                if(pIdx === idx) p.classList.add('active');
+                else p.classList.remove('active');
+            });
+        }
+
+        // Copy Code utility
+        function copyCode(elementId) {
+            const codeEl = document.getElementById(elementId);
+            navigator.clipboard.writeText(codeEl.innerText).then(() => {
+                const btn = codeEl.closest('.code-container').querySelector('.copy-btn');
+                const origText = btn.innerText;
+                btn.innerText = 'Copied!';
+                btn.style.borderColor = 'var(--brand-green-glow)';
+                btn.style.color = 'var(--brand-green-glow)';
+                setTimeout(() => {
+                    btn.innerText = origText;
+                    btn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                    btn.style.color = 'var(--text-muted)';
+                }, 2000);
+            });
+        }
+
+        // Dynamic Code Wrapping on load
+        document.addEventListener('DOMContentLoaded', () => {
+            const codeBlocks = document.querySelectorAll('pre');
+            codeBlocks.forEach((pre, idx) => {
+                const code = pre.querySelector('code');
+                if (!code) return;
+                
+                // Skip if already wrapped
+                if (pre.parentElement.classList.contains('code-container')) return;
+                
+                const container = document.createElement('div');
+                container.className = 'code-container';
+                
+                const header = document.createElement('div');
+                header.className = 'code-header';
+                
+                const classes = code.className.split(' ');
+                let lang = 'Code';
+                classes.forEach(c => {
+                    if (c.startsWith('language-')) {
+                        lang = c.replace('language-', '').toUpperCase();
+                    }
+                });
+                
+                const langSpan = document.createElement('span');
+                langSpan.className = 'code-lang';
+                langSpan.innerText = lang;
+                
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'copy-btn';
+                copyBtn.innerText = 'Copy';
+                const uniqueId = `code-block-${idx}`;
+                code.id = uniqueId;
+                copyBtn.onclick = () => copyCode(uniqueId);
+                
+                header.appendChild(langSpan);
+                header.appendChild(copyBtn);
+                
+                pre.parentNode.insertBefore(container, pre);
+                container.appendChild(header);
+                container.appendChild(pre);
+            });
+
+            // Intersection Observer scroll tracking for sidebar scrollspy
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px -10% -80% 0px',
+                threshold: 0
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.getAttribute('id');
+                        document.querySelectorAll('.nav-menu .nav-item').forEach(item => {
+                            item.classList.remove('active');
+                        });
+                        const activeItem = document.getElementById(`menu-${id}`);
+                        if (activeItem) {
+                            activeItem.classList.add('active');
+                        }
+                    }
+                });
+            }, observerOptions);
+
+            document.querySelectorAll('.card').forEach(card => {
+                observer.observe(card);
+            });
+        });
+    </script>
+</body>
+</html>

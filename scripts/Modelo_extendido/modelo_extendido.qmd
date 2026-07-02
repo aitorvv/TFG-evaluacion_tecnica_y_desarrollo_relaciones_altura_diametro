@@ -1,0 +1,208 @@
+---
+title: "Modelo h-d extendido"
+author: "Alicia Xu Díez"
+date: 2026-02-18
+format: html
+editor: visual
+---
+
+Comandos básicos
+
+```{r}
+library(tidyverse)  
+library(broom)  
+library(ggplot2)    
+library(openxlsx)
+library(minpack.lm)
+source('../Modelos95/2.0_hd_equations.r')
+
+sp <- 21  # cambiar especie aquí, vamos a usarlo más abajo - avv
+sp_name <- 'Pinus sylvestris'  # GRÁFICOS Y DEMÁS
+```
+
+Importar árboles y parcelas uniendo ambos (df); importar top 5 modelos y seleccionar el mejor
+
+```{r}
+trees <- read.csv("../../data/procesados/1_harmonized_tree_df_jcyl_sfni.csv")
+trees <- subset(trees, species == sp)     
+trees <- trees[trees$dead == 0, ]
+
+plots <- read.csv("../../data/procesados/1_harmonized_plot_df_jcyl_sfni.csv")
+plots <- plots[plots$PLOT_ID %in% trees$PLOT_ID, ]
+
+df <- left_join(trees, plots, by = c("INVENTORY_ID", "PLOT_ID"))
+
+top5 <- read.csv(paste0("../Modelos95/Outputs/balance_econ/top5_", sp, ".csv"))
+best_model <- top5$Modelo[1]
+fit_best_model <- readRDS(paste0("../Modelos95/Outputs/Modelos95/", sp, "/Ajuste/fit_", best_model, ".RData"))
+summary(fit_best_model)
+```
+
+Hacer una búsqueda manual para encontrar el modelo...
+
+elmamoun_2013_M11 <- function(a, b, c, dbh) {
+ h <- 1.3 + (exp(a * exp(-b * (dbh^(-c)))))
+ return(h)
+}
+
+... y sus parámetros:
+
+a = 3.30823
+b = 7.80406
+c = 1.04952
+
+
+Vamos a probar a incluir las siguientes variables: N, dg, G, Ho, Do, SDI, S
+
+Estas nos dan info de: 
+
+- densidad (N, S)
+
+- tamaño de la masa / grado madurez (dg, Ho, Do)
+
+- espesura ~ competencia ~ densidad x tamaño (G, SDI)
+
+Vamos a combinar una variable de cada grupo; para G y SDI, únicamente combinada con Ho.
+
+
+Para ello, modificamos el modelo inicial añadiendo estas variables de la misma forma que el dbh, como si fuera una "lista" de todas las variables que queremos incluir en el modelo. Este sería el ejemplo fácil en un modelo lineal:
+
+h = a + b\*dbh - c\*N
+
+Este sería el ejemplo para nuestro modelo:
+
+
+
+E incluimos los parámetros nuevos en la lista de parámetros a optimizar (prueba con 0 o 1; si no funciona descártalo).
+
+```{r}
+
+df_clean <- df %>%
+  filter(!is.na(N))  # Asegurarse de que no hay NA en N
+
+# modelo con 1 variable extra
+fit <- nlsLM(h ~ 1.3 + (exp((a + a1*G) * exp(-b * (dbh^(-c))))),  # fórmula nueva
+             data = df_clean,  # datos de árboles + parcelas SIN NAs
+             start = c(a = 3.30823, b = 7.80406, c = 1.04952, a1 = 0),  # parámetros iniciales
+             control = nls.lm.control(maxiter = 1000))
+summary(fit)
+
+# modelo con 2 variables extra
+fit <- nlsLM(h ~ 1.3 + (exp((a + a1*G + a2*Ho) * exp(-b * (dbh^(-c))))),  # fórmula nueva
+             data = df_clean,  # datos de árboles + parcelas SIN NAs
+             start = c(a = 3.30823, b = 7.80406, c = 1.04952, a1 = 0, a2 = 0),  # parámetros iniciales
+             control = nls.lm.control(maxiter = 1000))
+summary(fit)
+```
+
+OJO! Si nos sale Ho como una de las variables que dan el mejor modelo, vamos a incluir en el trabajo este mejor modelo y el siguiente mejor sin Ho.
+
+```{r}
+# Lista de modelos a probar para automatizar el proceso
+modelos_lista <- list(
+  "G" = list(
+    formula = h ~ 1.3 + (exp((a + a1*G) * exp(-b * (dbh^(-c))))),
+    start   = c(a = 3.30823, b = 7.80406, c = 1.04952, a1 = 0)
+  ),
+  "G_Ho" = list(
+    formula = h ~ 1.3 + (exp((a + a1*G + a2*Ho) * exp(-b * (dbh^(-c))))),
+    start   = c(a = 3.30823, b = 7.80406, c = 1.04952, a1 = 0, a2 = 0)
+  ),
+  "N_dg" = list(
+    formula = h ~ 1.3 + (exp((a + a1*N + a2*dg) * exp(-b * (dbh^(-c))))),
+    start   = c(a = 3.30823, b = 7.80406, c = 1.04952, a1 = 0, a2 = 0)
+  )
+)
+```
+
+```{r}
+# preparación previa de carpetas
+dir.create(paste0("./Graficos_Modelos/", sp, "/Ajustes"), recursive = TRUE, showWarnings = FALSE)
+dir.create(paste0("./Graficos_Modelos/", sp,"/Residuales"), recursive = TRUE, showWarnings = FALSE)
+
+# fórmulas de apoyo
+calc_rmse <- function(obs, pred) sqrt(mean((obs - pred)^2, na.rm = TRUE))
+calc_mb <- function(obs, pred) mean(pred - obs, na.rm = TRUE)
+```
+
+```{r}
+resultados_metricas <- list()
+
+# BUCLE PRINCIPAL
+for (nombre in names(modelos_lista)) {
+  message("Procesando: ", nombre)
+  
+  # A. Intentar el ajuste
+  fit <- tryCatch({
+    nlsLM(
+      formula = modelos_lista[[nombre]]$formula,
+      data    = df_clean,
+      start   = modelos_lista[[nombre]]$start,
+      control = nls.lm.control(maxiter = 1000)
+    )
+  }, error = function(e) {
+    message("  -> Fallo en el ajuste")
+    return(NULL)
+  })
+  
+  # B. Si el modelo convergió, calculamos métricas y generamos gráficos
+  if (!is.null(fit)) {
+    obs  <- df_clean$h
+    pred <- predict(fit)
+    resid <- residuals(fit)
+    
+    # --- Cálculo de Estadísticos ---
+    rss  <- sum(resid^2)
+    tss  <- sum((obs - mean(obs))^2)
+    r2   <- 1 - (rss / tss)
+    
+    resultados_metricas[[nombre]] <- data.frame(
+      Modelo = nombre,
+      Converge = "SÍ",
+      R2   = round(r2, 4),
+      RMSE = round(calc_rmse(obs, pred), 4),
+      MB   = round(calc_mb(obs, pred), 4),
+      AIC  = round(AIC(fit), 2)
+    )
+    
+    # --- Generación de Gráficos ---
+    df_plot <- data.frame(Obs = obs, Pred = pred, Resid = resid)
+    
+    # Gráfico de Ajuste
+    p_ajuste <- ggplot(df_plot, aes(x = Obs, y = Pred)) +
+      geom_point(alpha = 0.4, color = "#1b7a5e") +
+      geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+      labs(title = paste("Ajuste:", nombre), subtitle = "Obs vs Pred",
+           x = "Altura Obs (m)", y = "Altura Pred (m)") +
+      theme_light()
+    
+    ggsave(filename = paste0("./Graficos_Modelos/", sp, "/Ajustes/Ajuste_", nombre, ".png"),
+           plot = p_ajuste, width = 7, height = 6, dpi = 300)
+    
+    # Gráfico de Residuales
+    p_resid <- ggplot(df_plot, aes(x = Pred, y = Resid)) +
+      geom_point(alpha = 0.4, color = "#4682B4") +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+      geom_smooth(method = "loess", color = "orange", se = FALSE) +
+      labs(title = paste("Residuales:", nombre), subtitle = "Análisis de Error",
+           x = "Altura Pred (m)", y = "Residuo (m)") +
+      theme_light()
+    
+    ggsave(filename = paste0("./Graficos_Modelos/", sp, "/Residuales/Residuos_", nombre, ".png"),
+           plot = p_resid, width = 7, height = 6, dpi = 300)
+    
+  } else {
+    # C. Si falló, guardamos fila con NAs
+    resultados_metricas[[nombre]] <- data.frame(
+      Modelo = nombre, Converge = "NO", 
+      R2 = NA, RMSE = NA, MB = NA, AIC = NA
+    )
+  }
+}
+
+# Resultado Final
+tabla_comparativa <- do.call(rbind, resultados_metricas)
+print(tabla_comparativa)
+saveRDS(tabla_comparativa, paste0("./Graficos_Modelos/", sp, "/Comparativa_Modelos_Extendido.RData"))
+```
+

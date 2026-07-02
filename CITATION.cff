@@ -1,0 +1,15 @@
+cff-version: 1.0.0
+message: "If you use this resources, please cite it as below."
+authors:
+- family-names: "Díez-Gómez"
+  given-names: "Alicia Xu"
+- family-names: "Vázquez-Veloso"
+  given-names: "Aitor"
+  orcid: "https://orcid.org/0000-0003-0227-506X"
+- family-names: "Bravo"
+  given-names: "Felipe"
+  orcid: "https://orcid.org/0000-0001-7348-6695"
+title: 'Code, data and resources for "Evaluación técnica y desarrollo de relaciones altura-diámetro para la estimación de volumen maderable"'
+version: 1.0.0
+date-released: 2026-07-02
+url: "https://github.com/aitorvv/TFG-evaluacion_tecnica_y_desarrollo_relaciones_altura_diametro"
