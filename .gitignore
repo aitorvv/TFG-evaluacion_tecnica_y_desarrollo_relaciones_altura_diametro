@@ -1,0 +1,35 @@
+# --- R ---
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+.Rapp.history
+
+# renv (mantén renv.lock, ignora la librería local / keep renv.lock, ignore local library)
+renv/library/
+renv/local/
+renv/cellar/
+renv/staging/
+
+# --- Salidas generadas / Generated output ---
+# Descomenta si NO quieres versionar figuras/tablas generadas.
+# Uncomment if you do NOT want to version generated figures/tables.
+# output/figures/
+# output/tables/
+
+# --- Datos pesados / Heavy data ---
+# El dataset se comparte libremente, pero considera Git LFS para ficheros grandes.
+# The dataset is shared freely, but consider Git LFS for large files.
+# *.xlsx
+# *.RDS
+
+# --- Sistema / OS ---
+.DS_Store
+Thumbs.db
+*~
+*.tmp
+
+# --- Editores / Editors ---
+.vscode/
+.idea/

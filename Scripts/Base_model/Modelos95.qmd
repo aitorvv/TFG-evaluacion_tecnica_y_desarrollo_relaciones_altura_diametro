@@ -1,0 +1,227 @@
+---
+title: "Modelo h-d"
+author: "Alicia Xu Díez"
+date: 2026-02-18
+format: html
+editor: visual
+---
+
+**NOTA: si nombras archivos con la fecha usa este orden: YYYY/MM/DD**
+
+## Modelo
+
+### Filtrado de especies
+
+(*Pinus sylvestris*, 21; *Pinus nigra*, 25; *Pinus pinaster*, 26; *Quercus pyrenaica*, 43)
+
+```{r carga de librerías y datos}
+library(tidyverse)  
+library(broom)  
+library(ggplot2)    
+library(openxlsx)
+library(minpack.lm)
+source('./2.0_hd_equations.r')
+# trees <- read.csv("./Data/202602191_harmonized_tree_df_jcyl_sfni.csv")
+trees <- read.csv("./Data/1_harmonized_tree_df_jcyl_sfni.csv")
+```
+
+```{r filtrado de especies}
+str(trees)  #Ver estructura de datos
+
+sp <- 25  # SI 25 - CÁLCULO DE VOLUMENES: DESCOMENTAR UNA LÍNEA
+sp_name <- 'Pinus nigra'  # GRÁFICOS Y DEMÁS
+
+trees <- subset(trees, species == sp)     
+trees <- trees[trees$dead == 0, ]
+
+```
+
+### Ajuste de modelos en bucle
+
+```{r ajuste de modelos en bucle}
+
+models <- get_models_list() # modelos lista de Aitor
+
+# función para ajustar parámetros iniciales automáticamente
+adjust_start <- function(start_params, adjustment_factor = 0.5) {
+  lapply(start_params, function(x) {
+    x + runif(1, -adjustment_factor, adjustment_factor)  # parametros random small range
+  })
+}
+
+# máximos intentos
+max_retries <- 10
+
+# Resultados en dataframe (puedes ordenar)
+resultados <- data.frame()
+# Resultados en lista con los valores de los parámetros CODIGO AITOR
+# resultados <- list()  
+
+
+
+# ESTE MODELO FUNCIONA:
+# model_name <- 'logistic_model'
+# Para comprobar que el gráfico funciona, corres el código saltando los loops
+
+
+# "for loop", ajuste de modelos
+for (model_name in names(models)){
+
+  # extrae la ecuación y los parámetros de la lista
+  model_function <- models[[model_name]]$func
+  start_params_orig <- models[[model_name]]$start
+  attempt <- 1
+  fit_success <- FALSE
+  
+  #"WHILE loop" Múltiples intentos de ajuste para un mismo modelo
+  while (attempt <= max_retries && !fit_success) {
+    
+     # cambia la estructura para que R lo entienda
+     param_names <- names(start_params_orig)
+     formula_str <- paste0("h ~ model_function(", paste(param_names, collapse = ", "), ", dbh)")
+     model_formula <- as.formula(formula_str) #ecuación a usar
+  
+     # AJUSTE MODELO
+     fit_result <- tryCatch({
+    
+        fit <- nlsLM(model_formula, data = trees, start = start_params_orig)
+        
+        fit_success <- TRUE  #SI AJUSTA REALIZA:
+        if(fit_success){
+          saveRDS(fit, paste("./Outputs/Modelos95/", sp,"/Ajuste/fit_", model_name, ".RData", sep = ''))
+          }
+        print(paste('Model fit! ', model_name), sep = '')
+      
+      
+        #PREDICCIÓN
+        pred_obs <- predict(fit, newdata = trees)
+     
+        # EVALUACIÓN DEL MODELO
+        # RMSE
+        RMSE <- sqrt(mean((trees$h - pred_obs)^2))
+    
+        # R2
+        y_observado <- trees$h
+        y_predicho <- predict(fit)
+  
+        R2 <- cor(y_observado, y_predicho)^2
+         ss_total <- sum((trees$h - mean(trees$h))^2)
+         ss_residual <- sum(residuals(fit)^2)
+         R2 <- 1 - (ss_residual / ss_total)
+              
+        # AIC
+        AIC_value <- AIC(fit)
+    
+        # Mean Bias
+        MB <- mean(pred_obs - trees$h)
+    
+        # Tabla de resultados del ajuste
+        fit_eval <- data.frame(  # creamos este df temporal para "resultados"
+          RMSE = RMSE,
+          R2 = R2,
+          AIC = AIC_value,
+          MB = MB,
+          Modelo = model_name,
+          attempt = attempt,
+          species = sp  # por si unimos todos los resultados de las especies en un mismo dataframe 
+      )
+        
+      #Gráfica Ajuste
+        dbh_seq <- seq(min(trees$dbh), max(trees$dbh), length.out = 1000)
+        pred_h <- predict(fit, newdata = data.frame(dbh = dbh_seq))
+        df_artificial <- data.frame(dbh_seq, pred_h)
+        
+        graph <- ggplot(trees, aes(x = dbh, y = h)) +
+          geom_point(color = "forestgreen", size = 2, alpha = 0.6) +  # Puntos árboles
+          geom_point(data = df_artificial, aes(x = dbh_seq, y = pred_h), color = 'red')+
+          xlim(0, max(trees$dbh)) +
+          ylim(0, max(trees$h)) +
+          labs(
+            title = "Relación Altura-Diámetro.",
+            subtitle = sp_name,  
+            x = "Diámetro (cm)",
+            y = "Altura (m)"
+          ) +
+          theme_minimal() + 
+          theme(plot.subtitle = element_text(face = "italic", hjust = 0.5))
+        
+        graph
+        ggsave(plot = graph, filename = paste("./Outputs/Modelos95/", sp,"/Ajuste/fit_", model_name, ".png", sep = ''), width = 12, height = 8, dpi = 72, bg = "white", create.dir = TRUE)
+        
+        
+        #Gráfica residuales
+        
+        tmp_trees <- trees  # creamos un df temporal para no modificar el df original y añadimos h predichas y los residuales
+        tmp_trees$h_pred <- fitted(fit)
+        tmp_trees$residuals <- residuals(fit)
+        save(tmp_trees, file = paste("./Outputs/Modelos95/", sp,"/Residuales/residuals_", model_name, ".RData", sep = ''))  # guardamos el df de residuales por si queremos usarlo luego (spoiler, lo usaremos) - avv
+        
+        graph_res <- ggplot(tmp_trees, aes(x = h_pred, y = residuals)) +
+          geom_point(color = "forestgreen", size = 2, alpha = 0.7) +
+          geom_hline(yintercept = 0, color = "red", linewidth = 1.1, linetype = "dashed") +
+          labs(
+            title = "Residuales vs Predicciones",
+            subtitle = sp_name,
+            x = "Altura predicha (m)",
+            y = "Residuales (m)"
+          ) +
+          theme_minimal()
+         
+        graph_res
+        ggsave(plot = graph_res, filename = paste("./Outputs/Modelos95/", sp,"/Residuales/residuals_", model_name, ".png", sep = ''), width = 12, height = 8, dpi = 72, bg = "white", create.dir = TRUE)
+        
+        fit_eval
+        
+    }, error = function(e) {
+        
+        message(paste("Error in model", model_name, e$message, sep = ' '))
+        #SI NO AJUSTA: Dice qué modelo, porqué y el número de intentos
+
+        # cambio parámetros iniciales
+        start_params_orig <- adjust_start(start_params_orig)
+        
+        # Y SE MANTIENE ESTE VALOR:       fit_success <- FALSE
+
+        # Y SE GUARDA:                    fit_result = NULL:
+        NULL
+      })
+  
+     
+      # SI AJUSTA: fit_result = NOT NULL y GUARDA LA TABLA RESULTADOS: 
+      if (!is.null(fit_result)) {
+        # results[[model_name]] <- fit_result
+        resultados <- rbind(resultados, fit_eval)
+        # Nota: podríamos guardar los otros df de la misma forma
+
+      }
+      
+      # SI NO AJUSTA, SUMA UN INTENTO HASTA LLEGAR A 10
+      attempt <- attempt + 1
+     
+ }  # bucle while
+}  # bucle for
+
+
+write.csv(resultados, paste("./Outputs/Modelos95/", sp, "/Modelos95_resultados_modelos.csv", sep = ''), row.names = FALSE)
+
+# remove all except information that we will continue using
+rm(list = dplyr::setdiff(ls(), c("resultados", "trees", "sp", "sp_name")))
+
+```
+
+# Selección de mejor modelo
+
+```{r}
+# Aquí podrías hacer un análisis de los resultados para seleccionar el mejor modelo, por ejemplo, ordenando por RMSE o AIC
+# Lo dejo en tus manos, tienes que usar el df "resultados"; puedes quedarte con el mejor únicamente para terminar de desarrollar el código, ya vemos si cogemos más para testear o no
+
+top5 <- resultados[order(resultados$RMSE, resultados$AIC), ][1:5, ]
+
+write.csv(top5, paste0("./Outputs/balance_econ/top5_", sp, ".csv"), row.names = FALSE)
+
+print(top5)
+
+#Para Q.py todos los modelos presentan una forma de trompeta en los residuales
+
+```
+
